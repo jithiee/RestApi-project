@@ -25,7 +25,8 @@ class Register(APIView):
                 password = password,
                 is_doctor = is_doctor,
             )
-            Doctor.objects.create(user=user)
+            if user.is_doctor:
+                Doctor.objects.create(user=user)
             
             return Response({'msg':'data inserted , Registration Succesfull..'},status = status.HTTP_201_CREATED)
         
