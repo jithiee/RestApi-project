@@ -9,6 +9,7 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import authentication_classes
 from rest_framework.permissions import IsAuthenticated
+from .serializer import LoginSerializer
 
 
 class Register(APIView):
@@ -37,22 +38,21 @@ from django.contrib.auth import authenticate
 
 
 
-
 class Login(APIView):
-
     def post(self, request):
-        email = request.data.get('email')
-        password = request.data.get('password')
-        user = authenticate(email=email, password=password)
-        if user is not None:
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
-
-            return Response({
-                'access_token': access_token,
-                'refresh_token': refresh_token,
-            }, status=status.HTTP_200_OK)
+        serializer = LoginSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            password = serializer.validated_data['password']
+            user = authenticate(email=email, password=password)
+            if user is not None:
+                refresh = RefreshToken.for_user(user)
+                access_token = str(refresh.access_token)
+                refresh_token = str(refresh)
+                return Response({
+                    'access_token': access_token,
+                    'refresh_token': refresh_token,
+                }, status=status.HTTP_200_OK)
 
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
     
@@ -85,19 +85,18 @@ class Userprofile(APIView):
         except Exception as e:
         # Catch any unexpected exceptions and handle them appropriately.
             return Response({'msg': 'An error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         
-    
-    def delete(self,request):
+        
+
+    def delete(self, request, user_id):
         try:
-            user_del = UserCustomModel.objects.get(id=request.user.id)
-            serializer = UserProfileSerilizer(user_del,data= request.data)
-            if serializer.is_valid():
-                user_del.delete()
-                return Response({'msg': 'User profile deleted successfully'})
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
+            user = UserCustomModel.objects.get(id=user_id)
+            user.delete()
+            return Response({'msg': 'User profile deleted successfully'})
         except UserCustomModel.DoesNotExist:
-           return Response({'msg': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'msg': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+       
+       
        
 class DoctorsViewlist(APIView):
     def get(self,request,format =None):
@@ -110,7 +109,7 @@ class AdminViewlist(APIView):
     def get(self,request,format =None):
         users = UserCustomModel.objects.all()
         serializer =AdminSerializer(users,many =True)
-        return Response(serializer.data,status=status.HTTP_200_OK)
+        return Response(serializer.data,status=status.HTTP_200_OK)  
     
     
     def patch(self, request, pk):
@@ -123,6 +122,8 @@ class AdminViewlist(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except UserCustomModel.DoesNotExist:
             return Response({'msg': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+    
+    
     
    
    
