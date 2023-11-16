@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from  rest_framework.views import APIView
-from .serializer import UserCustomModelSerializer,UserProfileSerilizer,DoctorSerializer,AdminSerializer
+from .serializer import UserCustomModelSerializer,UserProfileSerilizer,DoctorListSerializer,AdminSerializer
 from . models import UserCustomModel, Doctor
 from rest_framework.response import Response
 from rest_framework import status
@@ -10,41 +10,54 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from .serializer import LoginSerializer
-
+from django.shortcuts import get_object_or_404
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializer import MyTokenObtainPairSerializer
 
 class Register(APIView):
-    def post(self, request, formate=None):
-        serializer = UserCustomModelSerializer(data = request.data)
+    def post(self, request, format=None):
+        serializer = UserCustomModelSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer._validated_data.get('email')
+            email = serializer.validated_data.get('email')
             username = serializer.validated_data.get('username')
+            first_name = serializer.validated_data.get('first_name')
+            last_name = serializer.validated_data.get('last_name')
             password = serializer.validated_data.get('password')
             is_doctor = serializer.validated_data.get('is_doctor')
-            user=UserCustomModel.objects.create_user(
-                email = email,
-                username = username,
-                password = password,
-                is_doctor = is_doctor,
+            user = UserCustomModel.objects.create_user(
+                email=email,
+                username=username,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                is_doctor=is_doctor,
             )
-            if user.is_doctor:
+            if is_doctor:
                 Doctor.objects.create(user=user)
-            
-            return Response({'msg':'data inserted , Registration Succesfull..'},status = status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors,status = status.HTTP_400_BAD_REQUEST)
+
+            return Response({'msg': 'Data inserted, Registration Successful.'}, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
 from django.contrib.auth import authenticate
 
 
-
+class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = MyTokenObtainPairSerializer
+    
 
 class Login(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
+            print(email,'email')
             password = serializer.validated_data['password']
+            print(password,'password')
+            
             user = authenticate(email=email, password=password)
+            print(user,'userrrrrr')
             if user is not None:
                 refresh = RefreshToken.for_user(user)
                 access_token = str(refresh.access_token)
@@ -59,7 +72,6 @@ class Login(APIView):
     
 @authentication_classes([JWTAuthentication])
 class Userprofile(APIView):
-    # authentication_classes=[JWTAuthentication]
     permission_classes=[IsAuthenticated]
     
     def get(self,request,format = None):
@@ -67,45 +79,45 @@ class Userprofile(APIView):
         
         user_profile = UserCustomModel.objects.get(id=request.user.id)
         serializer = UserProfileSerilizer(user_profile)
-        print(serializer)
+        print(serializer.data)
         return Response(serializer.data,status=status.HTTP_200_OK)
     
     def patch(self,request):
         try:
-            user_update = UserCustomModel.objects.get(id=request.user.id )
-            print(request.data)
+            user_update = request.user
+           
             serializer = UserProfileSerilizer(user_update,data = request.data,partial = True)   
             
             if serializer.is_valid():
                 serializer.save()
+                print(serializer.data,'kk')
                 return Response(serializer.data,status=status.HTTP_200_OK)
             return Response({'msg': 'Invalid data provided'},status=status.HTTP_404_NOT_FOUND)
         except UserCustomModel.DoesNotExist:
             return Response({'msg': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-        # Catch any unexpected exceptions and handle them appropriately.
             return Response({'msg': 'An error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         
 
     def delete(self, request, user_id):
-        try:
-            user = UserCustomModel.objects.get(id=user_id)
+            user = get_object_or_404(UserCustomModel,id=user_id)
             user.delete()
             return Response({'msg': 'User profile deleted successfully'})
-        except UserCustomModel.DoesNotExist:
-            return Response({'msg': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+                
+  
        
        
        
 class DoctorsViewlist(APIView):
     def get(self,request,format =None):
-        doct = Doctor.objects.all()
-        serializer = DoctorSerializer(doct,many =True)
+        doctor = UserCustomModel.objects.filter(is_doctor = True)
+        serializer = DoctorListSerializer(doctor,many =True)
         return Response(serializer.data,status=status.HTTP_200_OK)
     
     
 class AdminViewlist(APIView):
+    
     def get(self,request,format =None):
         users = UserCustomModel.objects.all()
         serializer =AdminSerializer(users,many =True)
@@ -120,9 +132,10 @@ class AdminViewlist(APIView):
             user.save()
             serializer = AdminSerializer(user)
             return Response(serializer.data, status=status.HTTP_200_OK)
+        
         except UserCustomModel.DoesNotExist:
             return Response({'msg': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
-    
+
     
     
    
@@ -139,15 +152,3 @@ class AdminViewlist(APIView):
     
     
 
-   
-# class UserAPIView(APIView):
-#     def post(self,request,*args, **kwargs):
-#         serializer=UserProfileSerilizer(data=request.data)
-#         if serializer.is_valid():
-#             email = serializer.validated_data.get("email")
-#             password=serializer.validated_data.get("password")
-#             user=authenticate(request,email=email,password=password)
-#             return Response(serializer.data,status=status.HTTP_200_OK)
-#         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-    
-    

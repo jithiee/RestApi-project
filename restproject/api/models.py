@@ -4,13 +4,15 @@ from django.contrib.auth.models import AbstractBaseUser,BaseUserManager
 
 
 class UserManager(BaseUserManager):
-    def create_user(self,username,email,is_doctor,password=None,**extra_fields):
+    def create_user(self,username,email,is_doctor,password=None,first_name=None,last_name=None,**extra_fields):
         if not email:
             raise ValueError('User Must Have an Email Address!!!')
         user = self.model(
             email=self.normalize_email(email),
             username=username,
             is_doctor=is_doctor,
+            first_name=first_name,
+            last_name = last_name, 
         )
         user.set_password(password)
         user.save(using=self._db)
@@ -31,7 +33,7 @@ class UserManager(BaseUserManager):
 
 
 
-class UserCustomModel(AbstractBaseUser):
+class   UserCustomModel(AbstractBaseUser):
     username = models.CharField(max_length=100)
     email = models.EmailField(max_length=100,unique=True)
     first_name = models.CharField(max_length=50,blank=True)
@@ -44,7 +46,7 @@ class UserCustomModel(AbstractBaseUser):
     objects = UserManager()
     
     USERNAME_FIELD ='email'
-    REQUIRED_FIELDS = ['username']  
+
     
     
     def has_perm(self,perm,obj=None):
@@ -62,7 +64,7 @@ class UserCustomModel(AbstractBaseUser):
 
 
 class Doctor(models.Model):
-    user = models.OneToOneField(UserCustomModel,on_delete=models.CASCADE)
+    user = models.OneToOneField(UserCustomModel,on_delete=models.CASCADE ,related_name='doctorprofile')
     hospital = models.CharField(max_length=255,null=True,blank=True)
     department = models.CharField(max_length=255,null=True,blank=True)
     is_verified = models.BooleanField(default=False)
